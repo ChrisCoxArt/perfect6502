@@ -233,6 +233,7 @@ plugin_gone(void) {
 
 			continue;
 		}
+        
 		/*
 		 * this example shows:
 		 * - how to override existing keywords
@@ -245,7 +246,7 @@ plugin_gone(void) {
 			unsigned char b;
 			a = get_word();
 			check_comma();
-			b = get_byte();
+			b = get_byte(); /* value is unused, but need the read for side effects */
 			if (a==6502) {
 				printf("MICROSOFT!");
 				continue;
