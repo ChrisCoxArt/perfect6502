@@ -42,19 +42,31 @@ typedef uint16_t count_t;
  *
  ************************************************************/
 
-#if 1       /* faster on 64 bit CPUs */
+#define WORDS_FOR_BITS(a) (a / (sizeof(bitmap_t) * 8) + 1)
+
+
+#if 1       /* debug and vector test    20.0k steps/s  */
+typedef uint8_t bitmap_t;
+#define BITMAP_SHIFT 0
+#define BITMAP_MASK 0
+#define ONE 1U
+
+#undef WORDS_FOR_BITS
+#define WORDS_FOR_BITS(a) (a)
+
+#elif 1       /* faster on 64 bit CPUs      24.1k steps/s  */
 typedef unsigned long long bitmap_t;
 #define BITMAP_SHIFT 6
 #define BITMAP_MASK 63
 #define ONE 1ULL
 
-#elif 0       /* faster on most 32 bit CPUs */
+#elif 0       /* faster on most 32 bit CPUs         24.0k steps/s  */
 typedef uint32_t bitmap_t;
 #define BITMAP_SHIFT 5
 #define BITMAP_MASK 31
 #define ONE 1UL
 
-#else       /* faster in some cases (and compilers) that allow for vectorization */
+#else       /* faster in some cases (and compilers) that allow for vectorization    24.1k steps/s  */
 typedef uint8_t bitmap_t;
 #define BITMAP_SHIFT 3
 #define BITMAP_MASK 7
@@ -141,7 +153,6 @@ typedef enum {
  *
  ************************************************************/
 
-#define WORDS_FOR_BITS(a) (a / (sizeof(bitmap_t) * 8) + 1)
 
 static inline void
 bitmap_clear(bitmap_t *bitmap, count_t count)
@@ -152,16 +163,24 @@ bitmap_clear(bitmap_t *bitmap, count_t count)
 static inline void
 set_bitmap(bitmap_t *bitmap, int index, BOOL state)
 {
+#if BITMAP_SHIFT == 0
+    bitmap[index] = state;
+#else
 	if (state)
 		bitmap[index>>BITMAP_SHIFT] |= ONE << (index & BITMAP_MASK);
 	else
 		bitmap[index>>BITMAP_SHIFT] &= ~(ONE << (index & BITMAP_MASK));
+#endif
 }
 
 static inline BOOL
 get_bitmap(bitmap_t *bitmap, int index)
 {
+#if BITMAP_SHIFT == 0
+	return bitmap[index];
+#else
 	return (bitmap[index>>BITMAP_SHIFT] >> (index & BITMAP_MASK)) & 1;
+#endif
 }
 
 /************************************************************
@@ -292,6 +311,7 @@ group_clear(state_t *state)
 	bitmap_clear(state->groupbitmap, state->nodes);
 }
 
+/* this won't get duplicates, because it is only called after group_contains(i) */
 static inline void
 group_add(state_t *state, nodenum_t i)
 {
@@ -421,6 +441,7 @@ recalcNode(state_t *state, nodenum_t node)
 		const nodenum_t nn = group_get(state, i);
 		if (get_nodes_value(state, nn) != newv) {
 			set_nodes_value(state, nn, newv);
+            
             const nodenum_t startg = state->nodes_gates[nn];
             const nodenum_t endg = state->nodes_gates[nn+1];
 			for (count_t t = startg; t < endg; t++) {
@@ -459,7 +480,8 @@ recalcNodeList(state_t *state)
 		 */
 		lists_switch(state);
 
-		if (!listin_count(state))
+        const count_t list_count = listin_count(state);
+		if (list_count == 0)
 			break;
 
 		listout_clear(state);
@@ -471,7 +493,6 @@ recalcNodeList(state_t *state)
 		 * all transistors controlled by this path, collecting
 		 * all nodes that changed because of it for the next run
 		 */
-        const count_t list_count = listin_count(state);
 		for (count_t i = 0; i < list_count; i++) {
 			nodenum_t n = listin_get(state, i);
 			recalcNode(state, n);
@@ -511,8 +532,8 @@ add_nodes_dependant(state_t *state, nodenum_t a, nodenum_t b, nodenum_t *counts,
 /*  6502:
         3288 transistors, 3239 used in simulation after duplicate removal
         1725 entries in node list and used in simulation
-        c1c2total = 6478
-        block_gate_size = 3239
+        c1c2total = 6478            (==transistors * 2)
+        block_gate_size = 3239      (==transistors)
         block_dep_size = 7260
 
     Working set = 89 KB allocations, 220 KB binary, plus system libs and text buffering
@@ -804,7 +825,8 @@ setNode(state_t *state, nodenum_t nn, BOOL s)
     set_nodes_pulldown(state, nn, !s);
     listout_add(state, nn);
 
-    recalcNodeList(state);
+    /* We must call recalcNodeList(state); after this,
+       but it can be done after all nodes are set, in the calling function */
 }
 
 BOOL
@@ -823,16 +845,32 @@ unsigned int
 readNodes(state_t *state, int count, nodenum_t *nodelist)
 {
 	unsigned int result = 0;
-	for (int i = count - 1; i >= 0; i--) {
-		result <<=  1;
-		result |= isNodeHigh(state, nodelist[i]);
-	}
+ 
+    /* using a fixed count, the compiler should unroll these loops easily */
+    if (count == 8)
+        for (int i = 7; i >= 0; i--) {
+            result <<=  1;
+            result |= get_nodes_value(state, nodelist[i]);
+        }
+    else if (count == 16)
+        for (int i = 15; i >= 0; i--) {
+            result <<=  1;
+            result |= get_nodes_value(state, nodelist[i]);
+        }
+    else
+        fprintf(stderr,"WARNING - readNodes called with unexpected count %d\n", count );
+    
 	return result;
 }
 
 void
 writeNodes(state_t *state, int count, nodenum_t *nodelist, int v)
 {
+    if (count != 8)
+        fprintf(stderr,"WARNING - writeNodes called with unexpected count %d\n", count );
+
 	for (int i = 0; i < 8; i++, v >>= 1)
         setNode(state, nodelist[i], v & 1);
+    
+    recalcNodeList(state);
 }
