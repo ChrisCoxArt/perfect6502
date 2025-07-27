@@ -176,6 +176,7 @@ initAndResetChip(void)
 										   vss,
 										   vcc);
 
+    /* start witht RESET held low */
 	setNode(state, res, 0);
 	setNode(state, clk0, 1);
 	setNode(state, rdy, 1);
@@ -185,7 +186,7 @@ initAndResetChip(void)
 
 	stabilizeChip(state);
 
-	/* hold RESET for 8 cycles */
+	/* hold RESET for 8 cycles = 16 clock changes */
 	for (int i = 0; i < 16; i++)
 		step(state);
 

@@ -19,7 +19,7 @@ static int get_console_info(HANDLE *h, COORD *pos, DWORD *size) {
 }
 #endif /* _WIN32 */
 
-void clear_screen() {
+void clear_screen(void) {
 #ifdef _WIN32
   static COORD upper_left = {0, 0};
   COORD dummy1;
@@ -36,7 +36,7 @@ void clear_screen() {
 #endif /* _WIN32 */
 }
 
-void up_cursor() {
+void up_cursor(void) {
 #ifdef _WIN32
   COORD pos;
   DWORD dummy;
@@ -52,7 +52,7 @@ void up_cursor() {
 #endif /* _WIN32 */
 }
 
-void down_cursor() {
+void down_cursor(void) {
 #ifdef _WIN32
   COORD pos;
   DWORD dummy;
@@ -68,7 +68,7 @@ void down_cursor() {
 #endif /* _WIN32 */
 }
 
-void left_cursor() {
+void left_cursor(void) {
 #ifdef _WIN32
   COORD pos;
   DWORD dummy;
@@ -84,7 +84,7 @@ void left_cursor() {
 #endif /* _WIN32 */
 }
 
-void right_cursor() {
+void right_cursor(void) {
 #ifdef _WIN32
   COORD pos;
   DWORD dummy;

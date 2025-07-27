@@ -45,7 +45,7 @@ typedef uint16_t count_t;
 #define WORDS_FOR_BITS(a) (a / (sizeof(bitmap_t) * 8) + 1)
 
 
-#if 1       /* debug and vector test    20.0k steps/s  */
+#if 0       /* debug and vector test    20.0k steps/s  */
 typedef uint8_t bitmap_t;
 #define BITMAP_SHIFT 0
 #define BITMAP_MASK 0
@@ -381,17 +381,17 @@ addNodeToGroup(state_t *state, nodenum_t n, group_value val)
 		val = contains_hi;
     /* state can remain at contains_nothing if the node value is low */
 
-	/* revisit all transistors that control this node */
+    /* revisit all transistors that control this node */
     const count_t start = state->nodes_c1c2offset[n];
-	const count_t end = state->nodes_c1c2offset[n+1];
+    const count_t end = state->nodes_c1c2offset[n+1];
     const c1c2_t *node_c1c2s = state->nodes_c1c2s;
-	for (count_t t = start; t < end; t++) {
-		const c1c2_t c = node_c1c2s[t];
-		/* if the transistor connects c1 and c2... */
-		if (get_transistors_on(state, c.transistor)) {
-			val = addNodeToGroup(state, c.other_node, val);
-		}
-	}
+    for (count_t t = start; t < end; t++) {
+        const c1c2_t c = node_c1c2s[t];
+        /* if the transistor connects c1 and c2... */
+        if (get_transistors_on(state, c.transistor)) {
+            val = addNodeToGroup(state, c.other_node, val);
+        }
+    }
  
     return val;
 }
@@ -486,6 +486,9 @@ recalcNodeList(state_t *state)
 
 		listout_clear(state);
 
+/*
+ccox - Wouldn't it be faster to only follow input nodes that have changed?
+ */
 		/*
 		 * for all nodes, follow their paths through
 		 * turned-on transistors, find the state of the

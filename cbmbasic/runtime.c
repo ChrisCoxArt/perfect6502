@@ -97,11 +97,11 @@ CHRGOT_start:
 }
 
 void
-CHRGET() {
+CHRGET(void) {
 	CHRGET_common(1);
 }
 void
-CHRGOT() {
+CHRGOT(void) {
 	CHRGET_common(0);
 }
 
